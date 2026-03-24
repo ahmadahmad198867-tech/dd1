@@ -5,6 +5,8 @@ const urlsToCache = [
     './style.css',
     './script.js',
     './icon.png',
+    './icon-192x192.png',
+    './icon-512x512.png',
     './manifest.json',
     'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js',
