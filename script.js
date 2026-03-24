@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCxi8zbwAIaTi8ngaIv0goV6h1imM8MLAM",
@@ -19,6 +19,7 @@ let merchants = [];
 let currentMerchantId = null;
 let currentTransactionId = null;
 let qrcodeInstance = null;
+let editingMerchantId = null;
 
 async function initApp() {
     const storedMerchants = await localforage.getItem('carContractsMerchants');
@@ -253,16 +254,28 @@ window.addMerchant = async function() {
         return;
     }
 
-    const newMerchant = {
-        id: Date.now(),
-        name,
-        phone,
-        date,
-        notes,
-        transactions: []
-    };
+    if (editingMerchantId) {
+        const merchant = merchants.find(m => m.id === editingMerchantId);
+        if (merchant) {
+            merchant.name = name;
+            merchant.phone = phone;
+            merchant.date = date;
+            merchant.notes = notes;
+        }
+        editingMerchantId = null;
+        document.querySelector('.add-merchant-form button').innerText = 'حفظ التاجر';
+    } else {
+        const newMerchant = {
+            id: Date.now(),
+            name,
+            phone,
+            date,
+            notes,
+            transactions: []
+        };
+        merchants.push(newMerchant);
+    }
 
-    merchants.push(newMerchant);
     await saveData();
     renderMerchants();
 
@@ -270,6 +283,37 @@ window.addMerchant = async function() {
     document.getElementById('merchant-phone').value = '';
     document.getElementById('merchant-date').value = '';
     document.getElementById('merchant-notes').value = '';
+};
+
+window.editMerchant = function(id) {
+    const merchant = merchants.find(m => m.id === id);
+    if (merchant) {
+        document.getElementById('merchant-name').value = merchant.name;
+        document.getElementById('merchant-phone').value = merchant.phone;
+        document.getElementById('merchant-date').value = merchant.date;
+        document.getElementById('merchant-notes').value = merchant.notes;
+        
+        editingMerchantId = id;
+        document.querySelector('.add-merchant-form button').innerText = 'تعديل التاجر';
+        window.scrollTo(0, 0);
+    }
+};
+
+window.deleteMerchantById = async function(id) {
+    if (confirm('هل أنت متأكد من حذف هذا التاجر وجميع معاملاته؟')) {
+        merchants = merchants.filter(m => m.id !== id);
+        await saveData();
+        
+        if (navigator.onLine) {
+            try {
+                await deleteDoc(doc(db, "merchants", id.toString()));
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        renderMerchants();
+    }
 };
 
 function renderMerchants() {
@@ -284,7 +328,11 @@ function renderMerchants() {
                 <h3 style="margin: 0;">${m.name}</h3>
                 <small>الرقم: ${m.phone} | التاريخ: ${m.date}</small>
             </div>
-            <button class="btn btn-primary" onclick="openMerchantDetails(${m.id})">عرض المعاملات</button>
+            <div>
+                <button class="btn btn-primary" onclick="openMerchantDetails(${m.id})">عرض المعاملات</button>
+                <button class="btn btn-secondary" onclick="editMerchant(${m.id})">✏️ تعديل</button>
+                <button class="btn btn-danger" onclick="deleteMerchantById(${m.id})">🗑️ حذف</button>
+            </div>
         `;
         list.appendChild(div);
     });
