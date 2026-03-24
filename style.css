@@ -37,6 +37,22 @@ body {
     transition: background-color 0.3s, color 0.3s;
 }
 
+.connection-status {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    border-radius: 30px;
+    color: white;
+    font-weight: bold;
+    z-index: 10000;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    font-size: 14px;
+}
+.status-online { background-color: #28a745; }
+.status-offline { background-color: #dc3545; }
+.status-syncing { background-color: #ffc107; color: #000; }
+
 .login-overlay {
     position: fixed;
     top: 0;
