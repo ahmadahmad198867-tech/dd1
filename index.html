@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام عقود المركبات</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+    <div id="login-overlay" class="login-overlay active-view">
+        <div class="login-card fade-in">
+            <h2 style="margin-top: 0;">الرجاء إدخال الرمز</h2>
+            <input type="password" id="login-password" class="login-input" placeholder="••••">
+            <br>
+            <button onclick="checkPassword()" class="btn btn-primary" style="margin-top: 15px;">تسجيل الدخول</button>
+        </div>
+    </div>
+
+    <div id="prayer-msg" class="prayer-msg">
+        استغفر الله العظيم واتوب اليه
+    </div>
+
+    <div id="main-view" class="app-view">
+        <div class="top-bar">
+            <button onclick="toggleDarkMode()" class="btn-theme-toggle" id="theme-btn">🌙</button>
+        </div>
+
+        <div class="card">
+            <h2 class="view-title">نظام إدارة عقود المركبات</h2>
+            
+            <div class="add-merchant-form">
+                <h3>إضافة تاجر/زبون جديد</h3>
+                <div class="form-row">
+                    <input type="text" id="merchant-name" placeholder="اسم التاجر/الزبون" required>
+                    <input type="text" id="merchant-phone" placeholder="رقم الهاتف">
+                    <input type="date" id="merchant-date">
+                </div>
+                <div class="form-row">
+                    <input type="text" id="merchant-notes" placeholder="ملاحظات" style="flex-grow: 1;">
+                    <button onclick="addMerchant()" class="btn btn-primary">حفظ التاجر</button>
+                </div>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="search-transactions" placeholder="🔍 ابحث بالاسم، أول حرف، رقم السيارة، أو رقم الشاصي..." onkeyup="searchAllTransactions()">
+            </div>
+
+            <div id="merchants-list" class="merchants-list">
+                </div>
+            
+            <div id="search-results" class="search-results-list" style="display: none;">
+                </div>
+        </div>
+    </div>
+
+    <div id="merchant-details-view" class="app-view">
+        <div class="card">
+            <button onclick="showView('main-view')" class="btn btn-secondary">🔙 العودة للرئيسية</button>
+            <h2 id="current-merchant-title" class="view-title" style="margin-top: 20px;">معاملات التاجر</h2>
+            
+            <button onclick="openNewTransaction()" class="btn btn-success" style="margin-bottom: 20px;">➕ إضافة استمارة / معاملة جديدة</button>
+            
+            <div id="transactions-list">
+                </div>
+        </div>
+    </div>
+
+    <div id="contract-view" class="app-view">
+        <div class="toolbar no-print">
+            <button onclick="saveTransaction()" class="btn btn-success">💾 حفظ المعاملة</button>
+            <button onclick="window.print()" class="btn btn-primary">🖨️ طباعة العقد</button>
+            <button onclick="showView('merchant-details-view')" class="btn btn-secondary">🔙 إلغاء والعودة</button>
+        </div>
+
+        <div class="contract-container" id="contract-form">
+            <div class="header">
+                <div class="header-right">
+                    <div class="input-group compact-group" style="margin-bottom: 5px;">
+                        <label>رقم العقد /</label>
+                        <span contenteditable="true" class="auto-expand compact-field"></span>
+                    </div>
+                    <div class="input-group compact-group" style="margin-bottom: 5px;">
+                        <label>مكتب /</label>
+                        <span class="static-field">الجوادين</span>
+                    </div>
+                    <div class="input-group compact-group">
+                        <label>رقم الاجازة /</label>
+                        <span class="static-field">9237</span>
+                    </div>
+                </div>
+                
+                <div class="header-center">
+                    <h2 style="font-size: 16px; margin: 0 0 10px 0;">عقد بيع وشراء مركبات</h2>
+                    <div class="logo-placeholder">
+                        <img src="icon.png" alt="icon">
+                    </div>
+                </div>
+                
+                <div class="header-left" style="text-align: center;">
+                    <h3 style="margin: 0 0 5px 0;">مكتب الجوادين</h3>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold;">لتنظيم عقود السيارات</p>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold;">مجاز رسميا</p>
+                    <p style="margin: 0; font-size: 11px;">المكتب مجاز من قبل قيادة عمليات بغداد<br>والمرور العامة رقم الإجازة ٩٢٣٧</p>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="input-group w-100">
+                    <label>الطرف الأول البائع السيد (</label>
+                    <span contenteditable="true" class="auto-expand" id="seller-name"></span>
+                    <label>) مالك المركبة المرقمة (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group w-50">
+                    <label>بموجب السنوية المرقمة (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+                <div class="input-group w-50">
+                    <label>عنوانه محافظة (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>) قضاء (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>) ناحية (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group w-50">
+                    <label>محلة (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>) زقاق (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>) دار (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+                <div class="input-group w-50">
+                    <label>معرف بالهوية (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group w-50">
+                    <label>جهة الاصدار (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+                <div class="input-group w-50">
+                    <label>رقم الهاتف (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-top: 15px;">
+                <div class="input-group w-100">
+                    <label>الطرف الثاني السيد (</label>
+                    <span contenteditable="true" class="auto-expand" id="buyer-name"></span>
+                    <label>) المحافظة (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>) القضاء (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group w-100">
+                    <label>الناحية (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>) محلة (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>) الزقاق (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>) رقم الدار (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="input-group w-33">
+                    <label>معرف بالهوية (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+                <div class="input-group w-33">
+                    <label>جهة الاصدار (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+                <div class="input-group w-33">
+                    <label>رقم الهاتف (</label>
+                    <span contenteditable="true" class="auto-expand"></span>
+                    <label>)</label>
+                </div>
+            </div>
+
+            <div class="terms-section">
+                <div class="form-row">
+                    <div class="input-group w-100">
+                        <label>١- باع الطرف الأول الى الطرف الثاني المركبة المرقمة اعلاه نوع (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>) طراز (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>)</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group w-50">
+                        <label>اللون (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>)</label>
+                    </div>
+                    <div class="input-group w-50 chassis-group">
+                        <label>رقم الشاصي (</label>
+                        <span contenteditable="true" id="chassis-input" class="auto-expand chassis-field"></span>
+                        <label>)</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group w-100">
+                        <label>ببدل قدره (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>) وقبض البائع مبلغ قدره (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>) والباقي (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>)</label>
+                    </div>
+                </div>
+
+                <div class="term-item">٢- استلم الطرف الثاني المركبة المذكورة وهو المسؤول عنها من تاريخ توقيع العقد.</div>
+                <div class="term-item">٣- الطرف الأول مسؤول عن دفع كافة الغرامات المرورية والرسوم المترتبة عليه ورفع الحجوزات ان وجدت على المركبة لغاية تاريخ هذا العقد.</div>
+                <div class="term-item">٤- على المشتري فحص المركبة قبل الشراء وجهة تنظيم العقد غير مسؤولة عن العيوب الفنية التي تظهر بالسيارة بعد تنظيم العقد.</div>
+                <div class="term-item">٥- تم اتفاق الطرفين على البيع خارج المكتب والم المكتب غير مسؤول عن ذلك.</div>
+                
+                <div class="form-row" style="margin-top: 15px;">
+                    <div class="input-group w-100">
+                        <label>٦- البائع الحائز (</label>
+                        <span contenteditable="true" class="auto-expand" style="flex: 2.5;"></span>
+                        <label>) المحافظة (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>) محلة (</label>
+                        <span contenteditable="true" class="auto-expand" style="flex: 0.8;"></span>
+                        <label>) زقاق (</label>
+                        <span contenteditable="true" class="auto-expand" style="flex: 0.8;"></span>
+                        <label>) دار (</label>
+                        <span contenteditable="true" class="auto-expand" style="flex: 0.8;"></span>
+                        <label>)</label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group w-33">
+                        <label>رقم هوية الاحوال (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>)</label>
+                    </div>
+                    <div class="input-group w-33">
+                        <label>جهة الاصدار (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>)</label>
+                    </div>
+                    <div class="input-group w-33">
+                        <label>رقم الهاتف (</label>
+                        <span contenteditable="true" class="auto-expand"></span>
+                        <label>)</label>
+                    </div>
+                </div>
+
+                <div class="form-row" style="margin-top: 15px;">
+                    <div class="input-group w-100 notes-group">
+                        <label>٧- الملاحظات :</label>
+                        <span contenteditable="true" class="auto-expand notes-field"></span>
+                    </div>
+                </div>
+
+                <div class="footer-info-row" style="position: relative; justify-content: center;">
+                    <div class="term-item footer-term" style="position: absolute; right: 0;">٨- لايجوز الحك والشطب في العقد</div>
+                    <div class="date-line" style="margin: 0 auto;">
+                        <label>حرر بتاريخ</label>
+                        <span contenteditable="true" class="auto-expand date-field" id="contract-day"></span>
+                        <span class="date-separator">/</span>
+                        <span contenteditable="true" class="auto-expand date-field" id="contract-month"></span>
+                        <span class="date-separator">/</span>
+                        <span contenteditable="true" class="auto-expand date-field year-field" id="contract-year"></span>
+                        <label style="margin-right: 15px;">الساعة</label>
+                        <span contenteditable="true" class="auto-expand date-field" id="contract-time"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="signatures">
+                <div class="signature-box barcode-signature-box">
+                    <div id="chassis-qrcode-container" class="qr-container" style="display: none;">
+                        <div id="chassis-qrcode"></div>
+                        <div id="qr-chassis-text"></div>
+                    </div>
+                </div>
+                <div class="signature-box">
+                    <div>منظم العقد</div>
+                    <span contenteditable="true" class="auto-expand signature-line-input"></span>
+                </div>
+                <div class="signature-box">
+                    <div>المشتري</div>
+                    <span contenteditable="true" class="auto-expand signature-line-input" id="buyer-signature-name"></span>
+                </div>
+                <div class="signature-box">
+                    <div>البائع</div>
+                    <span contenteditable="true" class="auto-expand signature-line-input" id="seller-signature-name"></span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
