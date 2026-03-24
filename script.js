@@ -1,19 +1,146 @@
-let merchants = JSON.parse(localStorage.getItem('carContractsMerchants')) || [];
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCxi8zbwAIaTi8ngaIv0goV6h1imM8MLAM",
+    authDomain: "jghg-b1fc0.firebaseapp.com",
+    projectId: "jghg-b1fc0",
+    storageBucket: "jghg-b1fc0.firebasestorage.app",
+    messagingSenderId: "185126616319",
+    appId: "1:185126616319:web:1cd3230303fbaa714960ca"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+localforage.config({ name: 'CarContractsApp' });
+
+let merchants = [];
 let currentMerchantId = null;
 let currentTransactionId = null;
 let qrcodeInstance = null;
 
-if (localStorage.getItem('theme') === 'dark') {
-    document.body.classList.add('dark-mode');
-    document.getElementById('theme-btn').innerText = '☀️';
-}
+async function initApp() {
+    const storedMerchants = await localforage.getItem('carContractsMerchants');
+    if (storedMerchants) {
+        merchants = storedMerchants;
+    } else {
+        const legacyData = localStorage.getItem('carContractsMerchants');
+        if (legacyData) {
+            merchants = JSON.parse(legacyData);
+            await localforage.setItem('carContractsMerchants', merchants);
+        }
+    }
 
-document.addEventListener('DOMContentLoaded', () => {
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('theme-btn').innerText = '☀️';
+    }
+
     setupEditableFields();
     setupAutoExpand();
     setupQrGenerator();
     syncSignatureNames();
-});
+
+    updateConnectionStatus();
+    window.addEventListener('online', updateConnectionStatus);
+    window.addEventListener('offline', updateConnectionStatus);
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.error(err));
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
+
+function updateConnectionStatus() {
+    const statusDiv = document.getElementById('connection-status');
+    if (navigator.onLine) {
+        statusDiv.className = 'connection-status status-online';
+        statusDiv.innerText = 'Online';
+        syncData();
+    } else {
+        statusDiv.className = 'connection-status status-offline';
+        statusDiv.innerText = 'Offline';
+    }
+}
+
+async function syncData() {
+    if (!navigator.onLine) return;
+    
+    const statusDiv = document.getElementById('connection-status');
+    statusDiv.className = 'connection-status status-syncing';
+    statusDiv.innerText = 'Syncing...';
+
+    try {
+        const querySnapshot = await getDocs(collection(db, "merchants"));
+        let serverMerchants = [];
+        querySnapshot.forEach((docSnap) => {
+            serverMerchants.push(docSnap.data());
+        });
+
+        let merged = [...serverMerchants];
+        merchants.forEach(localM => {
+            let serverMIndex = merged.findIndex(sm => sm.id === localM.id);
+            if (serverMIndex > -1) {
+                let serverM = merged[serverMIndex];
+                localM.transactions.forEach(localT => {
+                    let tIndex = serverM.transactions.findIndex(st => st.id === localT.id);
+                    if (tIndex === -1) {
+                        serverM.transactions.push(localT);
+                    } else {
+                        serverM.transactions[tIndex] = localT;
+                    }
+                });
+                serverM.name = localM.name;
+                serverM.phone = localM.phone;
+                serverM.date = localM.date;
+                serverM.notes = localM.notes;
+            } else {
+                merged.push(localM);
+            }
+        });
+
+        merchants = merged;
+        await localforage.setItem('carContractsMerchants', merchants);
+
+        for (let m of merchants) {
+            await setDoc(doc(db, "merchants", m.id.toString()), m);
+        }
+
+        await localforage.setItem('syncQueue', []);
+
+        const msg = document.getElementById('prayer-msg');
+        const login = document.getElementById('login-overlay');
+        if (msg.style.display === 'none' && !login.classList.contains('active-view')) {
+            if (document.getElementById('merchants-list').style.display !== 'none') {
+                renderMerchants();
+            }
+            if (currentMerchantId) {
+                const m = merchants.find(x => x.id === currentMerchantId);
+                if(m) renderTransactions(m);
+            }
+        }
+
+        statusDiv.className = 'connection-status status-online';
+        statusDiv.innerText = 'Online';
+    } catch (error) {
+        console.error("Sync error:", error);
+        statusDiv.className = 'connection-status status-offline';
+        statusDiv.innerText = 'Sync Failed (Offline)';
+    }
+}
+
+async function saveData() {
+    await localforage.setItem('carContractsMerchants', merchants);
+    let syncQueue = await localforage.getItem('syncQueue') || [];
+    syncQueue.push(Date.now());
+    await localforage.setItem('syncQueue', syncQueue);
+    
+    if (navigator.onLine) {
+        syncData();
+    }
+}
 
 function setupEditableFields() {
     const editableFields = getEditableFields();
@@ -74,7 +201,7 @@ function syncSignatureNames() {
     }
 }
 
-function checkPassword() {
+window.checkPassword = function() {
     const password = document.getElementById('login-password').value;
     if (password === '1001') {
         document.getElementById('login-overlay').classList.remove('active-view');
@@ -83,7 +210,7 @@ function checkPassword() {
         alert('الرمز غير صحيح، يرجى المحاولة مرة أخرى.');
         document.getElementById('login-password').value = '';
     }
-}
+};
 
 function showPrayerMsg() {
     const msg = document.getElementById('prayer-msg');
@@ -98,24 +225,24 @@ function showPrayerMsg() {
 
 document.getElementById('login-password').addEventListener('keypress', function (e) {
     if (e.key === 'Enter') {
-        checkPassword();
+        window.checkPassword();
     }
 });
 
-function toggleDarkMode() {
+window.toggleDarkMode = function() {
     const isDark = document.body.classList.toggle('dark-mode');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     document.getElementById('theme-btn').innerText = isDark ? '☀️' : '🌙';
-}
+};
 
-function showView(viewId) {
+window.showView = function(viewId) {
     document.querySelectorAll('.app-view').forEach(view => {
         view.classList.remove('active-view');
     });
     document.getElementById(viewId).classList.add('active-view');
-}
+};
 
-function addMerchant() {
+window.addMerchant = async function() {
     const name = document.getElementById('merchant-name').value;
     const phone = document.getElementById('merchant-phone').value;
     const date = document.getElementById('merchant-date').value;
@@ -136,14 +263,14 @@ function addMerchant() {
     };
 
     merchants.push(newMerchant);
-    saveData();
+    await saveData();
     renderMerchants();
 
     document.getElementById('merchant-name').value = '';
     document.getElementById('merchant-phone').value = '';
     document.getElementById('merchant-date').value = '';
     document.getElementById('merchant-notes').value = '';
-}
+};
 
 function renderMerchants() {
     const list = document.getElementById('merchants-list');
@@ -163,7 +290,7 @@ function renderMerchants() {
     });
 }
 
-function searchAllTransactions() {
+window.searchAllTransactions = function() {
     const text = document.getElementById('search-transactions').value.trim();
     const merchantsList = document.getElementById('merchants-list');
     const resultsList = document.getElementById('search-results');
@@ -202,7 +329,7 @@ function searchAllTransactions() {
     renderSearchResults(advancedResults);
     merchantsList.style.display = 'none';
     resultsList.style.display = 'block';
-}
+};
 
 function renderSearchResults(results) {
     const list = document.getElementById('search-results');
@@ -229,19 +356,19 @@ function renderSearchResults(results) {
     });
 }
 
-function openTransactionFromSearch(merchantId, transactionId) {
+window.openTransactionFromSearch = function(merchantId, transactionId) {
     currentMerchantId = merchantId;
-    editTransaction(transactionId);
-}
+    window.editTransaction(transactionId);
+};
 
-function openMerchantDetails(merchantId) {
+window.openMerchantDetails = function(merchantId) {
     currentMerchantId = merchantId;
     const merchant = merchants.find(m => m.id === merchantId);
     document.getElementById('current-merchant-title').innerText = `معاملات التاجر: ${merchant.name}`;
 
     renderTransactions(merchant);
-    showView('merchant-details-view');
-}
+    window.showView('merchant-details-view');
+};
 
 function renderTransactions(merchant) {
     const list = document.getElementById('transactions-list');
@@ -270,13 +397,13 @@ function renderTransactions(merchant) {
     });
 }
 
-function openNewTransaction() {
+window.openNewTransaction = function() {
     currentTransactionId = null;
     clearContractForm();
-    showView('contract-view');
-}
+    window.showView('contract-view');
+};
 
-function editTransaction(transactionId) {
+window.editTransaction = function(transactionId) {
     currentTransactionId = transactionId;
     const merchant = merchants.find(m => m.id === currentMerchantId);
     const transaction = merchant.transactions.find(t => t.id === transactionId);
@@ -291,19 +418,19 @@ function editTransaction(transactionId) {
     });
 
     generateQr.call(document.getElementById('chassis-input'));
-    showView('contract-view');
-}
+    window.showView('contract-view');
+};
 
-function deleteTransaction(transactionId) {
+window.deleteTransaction = async function(transactionId) {
     if (confirm('هل أنت متأكد من حذف هذه المعاملة بشكل نهائي؟')) {
         const merchant = merchants.find(m => m.id === currentMerchantId);
         merchant.transactions = merchant.transactions.filter(t => t.id !== transactionId);
-        saveData();
+        await saveData();
         renderTransactions(merchant);
     }
-}
+};
 
-function saveTransaction() {
+window.saveTransaction = async function() {
     const merchant = merchants.find(m => m.id === currentMerchantId);
     const contractData = collectContractData();
 
@@ -318,10 +445,10 @@ function saveTransaction() {
         });
     }
 
-    saveData();
+    await saveData();
     alert('تم حفظ المعاملة بنجاح!');
-    openMerchantDetails(currentMerchantId);
-}
+    window.openMerchantDetails(currentMerchantId);
+};
 
 function clearContractForm() {
     getEditableFields().forEach(field => {
@@ -377,10 +504,6 @@ function normalizeTransactionData(rawData) {
     });
 
     return normalized;
-}
-
-function saveData() {
-    localStorage.setItem('carContractsMerchants', JSON.stringify(merchants));
 }
 
 function setupAutoExpand() {
